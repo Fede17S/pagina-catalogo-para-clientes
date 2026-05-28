@@ -1,0 +1,929 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Pedidos · DistriMax</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400;1,9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <style>
+/* ─── Variables ─── */
+:root {
+  --cd-primary: #2A6FDB;
+  --cd-primary-soft: color-mix(in oklch, var(--cd-primary) 12%, #fff);
+  --cd-primary-ink: color-mix(in oklch, var(--cd-primary) 70%, #06121f);
+  --cd-ink:   #0c0f14;
+  --cd-ink-2: #3a4150;
+  --cd-ink-3: #6b7280;
+  --cd-line:  #e7e9ee;
+  --cd-line-2:#f1f2f5;
+  --cd-bg:    #fbfbfa;
+  --cd-card:  #ffffff;
+  --cd-warn:  #c5562b;
+  --cd-ok:    #1f8a5b;
+  --cd-radius: 14px;
+  --cd-pad-row: 14px;
+}
+* { box-sizing: border-box; }
+html,body { margin:0; padding:0; background:var(--cd-bg);
+  font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+  color:var(--cd-ink); -webkit-font-smoothing:antialiased;
+}
+.app { display:flex; flex-direction:column; min-height:100vh; background:var(--cd-bg); font-size:14px; }
+.app,.app * { line-height:1.4; }
+
+/* Topbar */
+.topbar { display:flex; align-items:center; gap:14px; padding:14px 22px;
+  background:var(--cd-card); border-bottom:1px solid var(--cd-line);
+  position:sticky; top:0; z-index:30; }
+.is-mobile .topbar { padding:10px 16px; gap:10px; }
+.brand { display:flex; align-items:center; gap:10px; font-weight:600; letter-spacing:-0.01em; }
+.brand-mark { width:28px; height:28px; border-radius:8px; background:var(--cd-ink); color:#fff;
+  display:grid; place-items:center; font-family:'Fraunces',serif; font-size:17px; font-weight:500; font-style:italic; }
+.brand-name { font-size:15px; }
+.brand-name span { color:var(--cd-ink-3); font-weight:400; }
+.tier-pill { display:inline-flex; align-items:center; gap:8px; padding:5px 10px 5px 6px; border-radius:999px;
+  background:var(--cd-primary-soft); color:var(--cd-primary-ink); font-size:12px; font-weight:500;
+  border:1px solid color-mix(in oklch, var(--cd-primary) 18%, transparent); }
+.tier-pill .tier-dot { width:18px; height:18px; border-radius:50%; display:grid; place-items:center;
+  background:var(--cd-primary); color:#fff; font-size:9px; font-weight:700; letter-spacing:0.03em; }
+.spacer { flex:1; }
+.icon-btn { width:38px; height:38px; border-radius:10px; background:transparent; border:1px solid transparent;
+  display:grid; place-items:center; cursor:pointer; color:var(--cd-ink-2); font-size:18px; position:relative; }
+.icon-btn:hover { background:var(--cd-line-2); }
+.icon-btn.has-badge::after { content:attr(data-badge); position:absolute; top:4px; right:4px;
+  background:var(--cd-primary); color:#fff; border-radius:999px; min-width:16px; height:16px;
+  font-size:10px; padding:0 4px; display:grid; place-items:center; font-weight:600; }
+.search-rel { position:relative; flex:1; max-width:460px; }
+.search { flex:1; max-width:460px; height:38px; display:flex; align-items:center; gap:8px;
+  padding:0 12px; background:var(--cd-line-2); border-radius:10px; border:1px solid transparent; transition:all .15s; }
+.search:focus-within { background:#fff; border-color:var(--cd-line); }
+.search input { flex:1; border:0; background:transparent; outline:none; font:inherit; color:var(--cd-ink); }
+.search input::placeholder { color:var(--cd-ink-3); }
+.search-pop { position:absolute; top:100%; left:0; right:0; margin-top:6px; background:#fff;
+  border:1px solid var(--cd-line); border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.08);
+  padding:6px; max-height:320px; overflow:auto; z-index:50; }
+.search-pop button { display:flex; align-items:center; gap:10px; width:100%; padding:8px 10px;
+  border:0; background:transparent; border-radius:8px; font:inherit; color:var(--cd-ink); text-align:left; cursor:pointer; }
+.search-pop button:hover { background:var(--cd-line-2); }
+.search-pop .sp-brand { color:var(--cd-ink-3); font-size:11px; margin-left:auto; }
+.search-pop .sp-thumb { width:26px; height:26px; border-radius:6px;
+  background:linear-gradient(135deg, var(--cd-line-2), var(--cd-line)); }
+
+/* Body */
+.body { flex:1; overflow:auto; display:flex; flex-direction:column; }
+.body::-webkit-scrollbar { width:8px; }
+.body::-webkit-scrollbar-thumb { background:#d6d6d2; border-radius:4px; }
+.container { width:100%; max-width:1080px; margin:0 auto; padding:22px 22px 100px; }
+.is-mobile .container { padding:14px 14px 120px; }
+
+/* Hero / Banners */
+.hero { display:grid; grid-template-columns:1.4fr 1fr; gap:14px; margin-bottom:22px; }
+@media(max-width:700px){ .hero { grid-template-columns:1fr; } }
+.hero-card { border-radius:18px; padding:26px 28px; position:relative; overflow:hidden; min-height:160px;
+  display:flex; flex-direction:column; justify-content:space-between; }
+.hero-card.tone-primary { background:var(--cd-ink); color:#fbfbfa; }
+.hero-card.tone-primary .hero-cta { background:var(--cd-primary); color:#fff; }
+.hero-card.tone-neutral { background:linear-gradient(160deg,#f3f1ea,#e9e6dc); color:var(--cd-ink); }
+.hero-card.tone-subtle { background:var(--cd-card); border:1px solid var(--cd-line); }
+.hero-eyebrow { font-family:'JetBrains Mono',monospace; text-transform:uppercase; letter-spacing:.12em; font-size:10px; opacity:.7; }
+.hero-title { font-family:'Fraunces',serif; font-weight:400; font-size:28px; line-height:1.05;
+  margin:10px 0 6px; letter-spacing:-0.015em; }
+.hero-title em { font-style:italic; }
+.hero-sub { font-size:13px; opacity:.78; }
+.hero-cta { align-self:flex-start; margin-top:14px; padding:10px 16px; border-radius:999px;
+  font-size:13px; font-weight:500; background:var(--cd-ink); color:#fff; border:0; cursor:pointer; }
+.hero-card.tone-neutral .hero-cta { background:var(--cd-ink); color:#fff; }
+.hero-card.tone-subtle .hero-cta { background:var(--cd-primary); color:#fff; }
+.hero-deco { position:absolute; right:-30px; top:-30px; width:180px; height:180px; border-radius:50%;
+  background:radial-gradient(circle at 30% 30%, color-mix(in oklch, var(--cd-primary) 60%, transparent), transparent 65%);
+  pointer-events:none; }
+.banner-stack { display:flex; flex-direction:column; gap:14px; }
+.banner-stack .hero-card { min-height:0; padding:18px 20px; }
+.banner-stack .hero-title { font-size:18px; margin:6px 0 4px; }
+.banner-stack .hero-sub { font-size:12px; }
+.banner-stack .hero-cta { margin-top:10px; padding:7px 12px; font-size:12px; }
+
+/* Sections */
+.section-head { display:flex; align-items:baseline; justify-content:space-between; margin:22px 0 14px; }
+.section-head h2 { font-family:'Fraunces',serif; font-weight:400; font-size:24px; margin:0; letter-spacing:-0.015em; }
+.chips { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; }
+.chips::-webkit-scrollbar { display:none; }
+.chip { border:1px solid var(--cd-line); background:var(--cd-card); padding:8px 14px; border-radius:999px;
+  font:inherit; font-size:13px; color:var(--cd-ink-2); cursor:pointer; white-space:nowrap;
+  display:inline-flex; align-items:center; gap:7px; transition:all .12s; }
+.chip:hover { border-color:var(--cd-ink-3); }
+.chip[data-on='1'] { background:var(--cd-ink); color:#fff; border-color:var(--cd-ink); }
+.chip-icon { opacity:.65; font-size:12px; }
+.filters { display:flex; align-items:center; gap:10px; padding:12px 0;
+  border-bottom:1px solid var(--cd-line); margin-bottom:14px; flex-wrap:wrap; }
+.filters .ftog { display:inline-flex; gap:4px; background:var(--cd-line-2); border-radius:8px; padding:3px; }
+.filters .ftog button { border:0; background:transparent; padding:6px 10px; border-radius:6px;
+  font:inherit; font-size:12px; color:var(--cd-ink-2); cursor:pointer; }
+.filters .ftog button[data-on='1'] { background:#fff; color:var(--cd-ink); box-shadow:0 1px 2px rgba(0,0,0,.06); }
+.filters .fcount { font-size:12px; color:var(--cd-ink-3); margin-left:auto; }
+
+/* Product Grid */
+.grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); }
+@media(max-width:600px){ .grid { grid-template-columns:repeat(2,1fr); gap:10px; } }
+.prod { background:var(--cd-card); border:1px solid var(--cd-line); border-radius:var(--cd-radius);
+  padding:var(--cd-pad-row); display:flex; flex-direction:column; gap:10px; position:relative; transition:border-color .12s; }
+.prod:hover { border-color:#d2d4d8; }
+.prod-thumb { aspect-ratio:4/3; border-radius:10px;
+  background:repeating-linear-gradient(135deg,#f4f3ee 0 8px,#efece4 8px 16px);
+  position:relative; overflow:hidden; display:grid; place-items:center; }
+.prod-thumb .placeholder { font-family:'JetBrains Mono',monospace; font-size:9px; color:#9a958a;
+  text-transform:uppercase; letter-spacing:.1em; background:rgba(255,255,255,.7); padding:3px 6px; border-radius:3px; }
+.prod-offer { position:absolute; top:8px; left:8px; background:var(--cd-warn); color:#fff;
+  font-size:10px; font-weight:600; padding:3px 7px; border-radius:999px; font-family:'JetBrains Mono',monospace; }
+.prod-img { width:100%; height:100%; object-fit:cover; position:absolute; inset:0; }
+.prod-brand { font-size:11px; color:var(--cd-ink-3); text-transform:uppercase; letter-spacing:.06em; }
+.prod-name { font-size:14px; font-weight:500; color:var(--cd-ink); margin:0; min-height:2.2em; }
+.prod-prices { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;
+  border-top:1px dashed var(--cd-line); padding-top:10px; }
+.prod-price-unit { font-size:16px; font-weight:600; letter-spacing:-0.01em; }
+.prod-price-box { font-size:11px; color:var(--cd-ink-2); background:var(--cd-line-2);
+  padding:2px 6px; border-radius:4px; font-family:'JetBrains Mono',monospace; }
+.prod-actions { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.btn-add { border:1px solid var(--cd-line); background:#fff; border-radius:8px; padding:8px 0;
+  font:inherit; font-size:12px; font-weight:500; color:var(--cd-ink); cursor:pointer;
+  text-align:center; display:flex; align-items:center; justify-content:center; gap:6px; transition:all .12s; }
+.btn-add:hover { border-color:var(--cd-ink); }
+.btn-add b { color:var(--cd-primary); font-weight:600; }
+.btn-add.box { background:var(--cd-ink); color:#fff; border-color:var(--cd-ink); }
+.btn-add.box b { color:#fff; }
+.btn-add.box:hover { background:#000; }
+.btn-add small { display:block; font-size:10px; color:var(--cd-ink-3); font-weight:400; }
+.btn-add.box small { color:rgba(255,255,255,.6); }
+.prod-foot { display:flex; align-items:center; justify-content:space-between;
+  font-size:11px; color:var(--cd-ink-3); margin-top:-4px; }
+.in-cart-tag { display:inline-flex; align-items:center; gap:5px; font-size:11px; color:var(--cd-ok); font-weight:500; }
+.in-cart-tag::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--cd-ok); }
+.prod-note-btn { background:none; border:0; color:var(--cd-ink-3); font:inherit; font-size:11px;
+  cursor:pointer; padding:0; display:inline-flex; align-items:center; gap:4px; }
+.prod-note-btn:hover { color:var(--cd-ink); }
+.prod-note-btn[data-has='1'] { color:var(--cd-primary); font-weight:500; }
+
+/* Cart Drawer */
+.cart-overlay { position:fixed; inset:0; background:rgba(15,15,18,.32); z-index:80;
+  opacity:0; pointer-events:none; transition:opacity .2s; }
+.cart-overlay.open { opacity:1; pointer-events:auto; }
+.cart { position:fixed; top:0; right:0; bottom:0; width:420px; background:var(--cd-card);
+  display:flex; flex-direction:column; transform:translateX(100%);
+  transition:transform .26s cubic-bezier(.2,.7,.2,1); z-index:90; box-shadow:-10px 0 50px rgba(0,0,0,.12); }
+.cart.open { transform:translateX(0); }
+@media(max-width:600px){
+  .cart { width:100%; top:auto; height:90%; border-radius:22px 22px 0 0; transform:translateY(100%); }
+  .cart.open { transform:translateY(0); }
+}
+.cart-head { padding:18px 22px 14px; border-bottom:1px solid var(--cd-line);
+  display:flex; align-items:baseline; justify-content:space-between; }
+.cart-head h3 { font-family:'Fraunces',serif; font-weight:400; font-size:22px; margin:0; letter-spacing:-0.01em; }
+.cart-head h3 span { color:var(--cd-ink-3); font-size:14px; font-weight:400; }
+.cart-close { background:var(--cd-line-2); border:0; width:30px; height:30px;
+  border-radius:50%; cursor:pointer; font-size:14px; color:var(--cd-ink); }
+.cart-body { flex:1; overflow:auto; padding:4px 0; }
+.cart-empty { padding:60px 30px; text-align:center; color:var(--cd-ink-3); }
+.cart-empty h4 { font-family:'Fraunces',serif; font-weight:400; font-size:20px; color:var(--cd-ink); margin:0 0 6px; }
+.cart-empty p { font-size:13px; margin:0 0 18px; }
+.cart-item { display:grid; grid-template-columns:48px 1fr auto; gap:12px; padding:12px 22px; align-items:center; }
+.cart-item+.cart-item { border-top:1px solid var(--cd-line-2); }
+.cart-item-thumb { width:48px; height:48px; border-radius:8px;
+  background:repeating-linear-gradient(135deg,#f4f3ee 0 6px,#efece4 6px 12px); overflow:hidden; }
+.cart-item-thumb img { width:100%; height:100%; object-fit:cover; }
+.cart-item-name { font-size:13px; font-weight:500; line-height:1.25; margin:0; }
+.cart-item-meta { font-size:11px; color:var(--cd-ink-3); margin-top:3px; display:flex; gap:6px; align-items:center; }
+.cart-item-meta .pip { display:inline-block; padding:1px 6px; border-radius:4px;
+  background:var(--cd-line-2); font-family:'JetBrains Mono',monospace; font-size:10px; }
+.cart-qty { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--cd-line);
+  border-radius:8px; background:#fff; padding:2px; }
+.cart-qty button { border:0; background:transparent; width:22px; height:22px;
+  cursor:pointer; font:inherit; font-size:14px; color:var(--cd-ink); border-radius:4px; }
+.cart-qty button:hover { background:var(--cd-line-2); }
+.cart-qty input { width:28px; border:0; background:transparent; text-align:center;
+  font:inherit; font-size:12px; -moz-appearance:textfield; }
+.cart-qty input::-webkit-outer-spin-button,.cart-qty input::-webkit-inner-spin-button { -webkit-appearance:none; }
+.cart-item-line { text-align:right; font-size:13px; font-weight:600; min-width:80px; }
+.cart-item-remove { background:none; border:0; color:var(--cd-ink-3); cursor:pointer;
+  font:inherit; font-size:11px; padding:2px 0; text-decoration:underline; }
+.cart-foot { border-top:1px solid var(--cd-line); padding:16px 22px 22px; background:var(--cd-card); }
+.cart-totals { display:flex; flex-direction:column; gap:6px; font-size:13px; color:var(--cd-ink-2); margin-bottom:12px; }
+.cart-totals .ln { display:flex; justify-content:space-between; }
+.cart-totals .total { border-top:1px dashed var(--cd-line); padding-top:10px; margin-top:6px;
+  font-size:18px; color:var(--cd-ink); font-weight:600; }
+.btn-primary { width:100%; padding:14px; background:var(--cd-ink); color:#fff; border:0;
+  border-radius:12px; font:inherit; font-size:14px; font-weight:500; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:8px; }
+.btn-primary:disabled { background:var(--cd-line); color:var(--cd-ink-3); cursor:not-allowed; }
+.btn-primary:hover:not(:disabled) { background:#000; }
+
+/* Login */
+.login { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+  padding:32px; background:radial-gradient(900px 500px at 20% 0%, color-mix(in oklch,var(--cd-primary) 8%,#fff),transparent 60%),var(--cd-bg); }
+.login-card { width:100%; max-width:420px; background:var(--cd-card); border:1px solid var(--cd-line);
+  border-radius:18px; padding:32px; display:flex; flex-direction:column; gap:18px; }
+.login-card .brand-mark { width:40px; height:40px; font-size:22px; }
+.login-card h2 { font-family:'Fraunces',serif; font-weight:400; font-size:28px; margin:4px 0 0; letter-spacing:-0.015em; }
+.login-card p { margin:0; font-size:13px; color:var(--cd-ink-3); }
+.login-input { width:100%; padding:14px 16px; border-radius:10px; border:1px solid var(--cd-line);
+  font:inherit; font-size:15px; }
+.login-input:focus { outline:2px solid var(--cd-primary); outline-offset:-2px; border-color:transparent; }
+.login-err { font-size:12px; color:var(--cd-warn); padding:8px 12px; background:color-mix(in oklch,var(--cd-warn) 10%,#fff); border-radius:8px; }
+
+/* Ticket / Confirm */
+.ticket-stage { flex:1; overflow:auto; padding:32px 22px;
+  background:radial-gradient(800px 500px at 50% 0%,color-mix(in oklch,var(--cd-ok) 8%,#fff),transparent 60%),var(--cd-bg); }
+@media(max-width:600px){ .ticket-stage { padding:22px 14px; } }
+.ticket-success { text-align:center; margin:0 auto 24px; max-width:480px; }
+.ticket-check { width:56px; height:56px; border-radius:50%; background:var(--cd-ok); color:#fff;
+  display:grid; place-items:center; margin:0 auto 14px; }
+.ticket-success h2 { font-family:'Fraunces',serif; font-weight:400; font-size:30px; margin:0; letter-spacing:-0.015em; }
+.ticket-success p { color:var(--cd-ink-2); font-size:14px; margin:4px 0 0; }
+.ticket { max-width:480px; margin:0 auto; background:#fff; border-radius:18px; overflow:hidden;
+  border:1px solid var(--cd-line); box-shadow:0 20px 60px rgba(20,15,5,.08); }
+.ticket-head { padding:22px 24px; background:var(--cd-ink); color:#fbfbfa;
+  display:flex; align-items:flex-start; justify-content:space-between; }
+.ticket-head h4 { margin:0; font-size:13px; font-family:'JetBrains Mono',monospace; text-transform:uppercase; letter-spacing:.08em; opacity:.7; }
+.ticket-head .ticket-id { font-family:'JetBrains Mono',monospace; font-size:20px; margin-top:6px; font-weight:500; }
+.ticket-head .ticket-date { font-family:'JetBrains Mono',monospace; font-size:11px; opacity:.6; text-align:right; }
+.ticket-cust { padding:18px 24px; border-bottom:1px dashed var(--cd-line);
+  display:grid; grid-template-columns:1fr 1fr; gap:12px 24px; font-size:12px; }
+.ticket-cust dt { color:var(--cd-ink-3); text-transform:uppercase; font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.08em; margin:0; }
+.ticket-cust dd { margin:2px 0 0; font-weight:500; font-size:13px; }
+.ticket-items { padding:8px 24px; }
+.ticket-row { display:grid; grid-template-columns:1fr 60px 90px; gap:12px; padding:10px 0; font-size:13px; align-items:baseline; }
+.ticket-row+.ticket-row { border-top:1px dotted var(--cd-line-2); }
+.ticket-row b { font-weight:500; }
+.ticket-row .ti-q { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--cd-ink-3); text-align:center; }
+.ticket-row .ti-p { font-weight:500; text-align:right; }
+.ticket-totals { padding:16px 24px; border-top:1px dashed var(--cd-line); display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--cd-ink-2); }
+.ticket-totals .ln { display:flex; justify-content:space-between; }
+.ticket-totals .ln.total { border-top:1px solid var(--cd-line); margin-top:6px; padding-top:8px; font-size:18px; font-weight:600; color:var(--cd-ink); }
+.ticket-foot { display:flex; gap:10px; padding:16px 24px 22px; }
+@media(max-width:600px){ .ticket-foot { flex-direction:column; } }
+.btn-wa { flex:1; background:#25D366; color:#fff; border:0; padding:14px; border-radius:12px;
+  font:inherit; font-size:14px; font-weight:500; cursor:pointer; display:flex; gap:8px; align-items:center; justify-content:center; }
+.btn-wa:hover { background:#1ec559; }
+.btn-pdf { flex:1; background:#fff; color:var(--cd-ink); border:1px solid var(--cd-line);
+  padding:14px; border-radius:12px; font:inherit; font-size:14px; font-weight:500; cursor:pointer;
+  display:flex; gap:8px; align-items:center; justify-content:center; }
+.btn-pdf:hover { border-color:var(--cd-ink); }
+.ticket-actions { max-width:480px; margin:22px auto 0; text-align:center; }
+.ticket-actions button { background:none; border:0; color:var(--cd-ink-3); font:inherit; font-size:13px; cursor:pointer; text-decoration:underline; }
+
+/* Modal */
+.modal-overlay { position:fixed; inset:0; background:rgba(15,15,18,.4);
+  display:grid; place-items:center; z-index:200; padding:20px; animation:fade-in .15s ease-out; }
+@keyframes fade-in { from{opacity:0} to{opacity:1} }
+.modal { background:#fff; border-radius:16px; width:100%; max-width:420px;
+  padding:24px; display:flex; flex-direction:column; gap:14px; animation:pop-in .2s ease-out; }
+@keyframes pop-in { from{transform:scale(.96);opacity:0} to{transform:scale(1);opacity:1} }
+.modal h3 { font-family:'Fraunces',serif; font-weight:400; font-size:22px; margin:0; letter-spacing:-0.01em; }
+.modal p { font-size:13px; color:var(--cd-ink-2); margin:0; }
+.modal textarea { width:100%; min-height:100px; resize:vertical; border:1px solid var(--cd-line);
+  border-radius:10px; padding:12px; font:inherit; font-size:14px; }
+.modal textarea:focus { outline:2px solid var(--cd-primary); outline-offset:-2px; border-color:transparent; }
+.modal-actions { display:flex; gap:8px; justify-content:flex-end; }
+.btn-ghost { background:transparent; border:1px solid var(--cd-line); padding:10px 16px;
+  border-radius:8px; font:inherit; font-size:13px; cursor:pointer; color:var(--cd-ink); }
+.btn-ghost:hover { background:var(--cd-line-2); }
+.btn-solid { background:var(--cd-ink); color:#fff; border:0; padding:10px 16px;
+  border-radius:8px; font:inherit; font-size:13px; cursor:pointer; }
+.btn-solid:hover { background:#000; }
+
+/* Bottom Nav */
+.bottom-nav { position:fixed; bottom:0; left:0; right:0; background:var(--cd-card);
+  border-top:1px solid var(--cd-line); display:none; padding:8px 4px 20px; z-index:20; }
+@media(max-width:700px){ .bottom-nav { display:flex; } }
+.bottom-nav button { flex:1; border:0; background:transparent; padding:6px;
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  font:inherit; font-size:10px; color:var(--cd-ink-3); cursor:pointer; position:relative; }
+.bottom-nav button[data-on='1'] { color:var(--cd-ink); font-weight:500; }
+.bottom-nav button .bn-badge { position:absolute; top:0; right:calc(50% - 18px);
+  background:var(--cd-primary); color:#fff; border-radius:999px; min-width:14px; height:14px;
+  font-size:9px; padding:0 4px; display:grid; place-items:center; font-weight:600; }
+
+/* Loading */
+.loading-screen { position:fixed; inset:0; display:grid; place-items:center; background:var(--cd-bg); }
+.loading-spinner { width:40px; height:40px; border:3px solid var(--cd-line); border-top-color:var(--cd-primary);
+  border-radius:50%; animation:spin 0.8s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+// ── Supabase config (misma que pagina_clientes_pedidos) ──
+const SB_URL = 'https://vhoswhyixqtomgqudigj.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZob3N3aHlpeHF0b21ncXVkaWdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MTI4ODIsImV4cCI6MjA5NTM4ODg4Mn0.gjUaVJ1RvF3KrjfXVyh8wYIso4QW6RtIfFRbkd0PyA8';
+
+async function sbFetch(table, query='', method='GET', body=null) {
+  const url = `${SB_URL}/rest/v1/${table}?${query}`;
+  const res = await fetch(url, {
+    method,
+    headers: {
+      'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': method === 'POST' ? 'return=representation' : ''
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return method === 'DELETE' ? null : res.json();
+}
+
+const sbGet  = (t, q) => sbFetch(t, q);
+const sbPost = (t, b) => sbFetch(t, '', 'POST', b);
+
+function fmtARS(n) {
+  return '$' + Math.round(n).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+}
+</script>
+
+<script type="text/babel">
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+// ── Icons ──
+const Icon = ({ d, size=18, fill='none', stroke='currentColor', sw=1.6, children }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke}
+       strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+    {children || <path d={d}/>}
+  </svg>
+);
+const IconSearch  = p => <Icon {...p}><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></Icon>;
+const IconCart    = p => <Icon {...p}><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.5L21 8H6"/><circle cx="9" cy="20" r="1.2"/><circle cx="18" cy="20" r="1.2"/></Icon>;
+const IconClose   = p => <Icon {...p}><path d="M6 6l12 12M18 6l-12 12"/></Icon>;
+const IconPlus    = p => <Icon {...p}><path d="M12 5v14M5 12h14"/></Icon>;
+const IconMinus   = p => <Icon {...p}><path d="M5 12h14"/></Icon>;
+const IconCheck   = p => <Icon {...p}><path d="M5 12l5 5L20 7"/></Icon>;
+const IconWhats   = p => <Icon {...p} fill="currentColor" stroke="none"><path d="M12.05 2A9.95 9.95 0 0 0 3.7 17.27L2.2 22l4.86-1.49A9.95 9.95 0 1 0 12.05 2zm5.83 14.27c-.24.7-1.4 1.33-1.95 1.4-.5.07-1.13.1-1.83-.12-.42-.13-.97-.31-1.66-.61-2.93-1.27-4.83-4.22-4.97-4.42-.15-.2-1.18-1.58-1.18-3.02s.76-2.14 1.03-2.43c.27-.29.6-.36.79-.36h.57c.18 0 .42-.07.66.51.24.58.83 2.02.9 2.17.07.15.12.32.02.51-.1.2-.15.32-.29.49-.15.18-.3.39-.43.52-.15.15-.3.31-.13.6.17.29.76 1.27 1.64 2.05 1.13 1 2.08 1.31 2.37 1.46.29.15.46.12.63-.07.17-.2.73-.84.92-1.14.2-.29.39-.24.66-.15.27.1 1.7.8 1.99.95.29.15.49.22.56.34.07.13.07.73-.18 1.42z"/></Icon>;
+const IconPDF     = p => <Icon {...p}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 14h6M9 18h4"/></Icon>;
+const IconNote    = p => <Icon {...p}><path d="M5 4h11l3 3v13H5z"/><path d="M9 10h6M9 14h6M9 18h3"/></Icon>;
+const IconHome    = p => <Icon {...p}><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></Icon>;
+const IconRepeat  = p => <Icon {...p}><path d="M17 3l3 3-3 3"/><path d="M4 13v-1a4 4 0 0 1 4-4h12"/><path d="M7 21l-3-3 3-3"/><path d="M20 11v1a4 4 0 0 1-4 4H4"/></Icon>;
+const IconChev    = p => <Icon {...p}><path d="M9 6l6 6-6 6"/></Icon>;
+const IconBox     = p => <Icon {...p}><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></Icon>;
+const IconUnit    = p => <Icon {...p}><rect x="6" y="4" width="12" height="16" rx="2"/><path d="M9 9h6M9 13h6"/></Icon>;
+
+// ── Helpers ──
+function priceForLista(p, lista) {
+  // Use precio_patagonia for PATAGONIA list, precio_clientes for CLIENTES, else precio_base
+  const l = (lista || '').toUpperCase();
+  if (l === 'PATAGONIA' && p.precio_patagonia) return p.precio_patagonia;
+  if (p.precio_clientes) return p.precio_clientes;
+  return p.precio_base || 0;
+}
+
+// ── Login Screen ──
+function LoginScreen({ onLogin }) {
+  const [empCod, setEmpCod] = useState('');
+  const [uid,    setUid]    = useState('');
+  const [pass,   setPass]   = useState('');
+  const [err,    setErr]    = useState('');
+  const [loading,setLoading]= useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!empCod.trim() || !uid.trim() || !pass) { setErr('Completá todos los campos'); return; }
+    setLoading(true); setErr('');
+    try {
+      // 1. Buscar empresa por código
+      const emps = await sbGet('empresas', `select=id,codigo,nombre,color,logo&codigo=eq.${encodeURIComponent(empCod.trim().toLowerCase())}`);
+      if (!emps || !emps.length) { setErr('Empresa no encontrada'); setLoading(false); return; }
+      const emp = emps[0];
+      // 2. Buscar usuario
+      const users = await sbGet('usuarios', `select=*&empresa_id=eq.${emp.id}`);
+      const found = (users||[]).find(u => (u.uid === uid.trim() || u.uid === uid.trim().toLowerCase()) && u.pass === pass);
+      if (!found) { setErr('Código o contraseña incorrectos'); setLoading(false); return; }
+      // 3. Cargar productos
+      const prods = await sbGet('productos', `select=*&empresa_id=eq.${emp.id}&order=nombre.asc`);
+      onLogin({ empresa: emp, usuario: found, productos: prods || [] });
+    } catch(ex) {
+      setErr('Error de conexión: ' + ex.message);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="login">
+      <div className="login-card">
+        <div className="brand-mark">C</div>
+        <div>
+          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:'var(--cd-ink-3)',textTransform:'uppercase',letterSpacing:'0.1em'}}>
+            DistriMax · Pedidos
+          </div>
+          <h2>Hacé tu pedido, <em style={{fontStyle:'italic'}}>fácil.</em></h2>
+        </div>
+        <p>Ingresá tu código de empresa, tu usuario y tu contraseña.</p>
+        <form onSubmit={submit} style={{display:'flex',flexDirection:'column',gap:10}}>
+          <input className="login-input" placeholder="Código de empresa" value={empCod}
+                 onChange={e=>{setEmpCod(e.target.value);setErr('');}} autoCapitalize="none"/>
+          <input className="login-input" placeholder="Tu usuario / código" value={uid}
+                 onChange={e=>{setUid(e.target.value);setErr('');}} autoCapitalize="none"/>
+          <input className="login-input" type="password" placeholder="Contraseña" value={pass}
+                 onChange={e=>{setPass(e.target.value);setErr('');}}/>
+          {err && <div className="login-err">{err}</div>}
+          <button type="submit" className="btn-primary" style={{marginTop:4}} disabled={loading || !empCod.trim() || !uid.trim() || !pass}>
+            {loading ? 'Ingresando…' : <>Entrar &nbsp;<IconChev size={16} stroke="#fff"/></>}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Product Card ──
+function ProductCard({ product: p, lista, cart, onAdd, onNote, notes }) {
+  const precio = priceForLista(p, lista);
+  const inCart = cart.find(c => c.id === p.id);
+  const hasNote = !!notes[p.id];
+  const offerPct = p.precio_promo && p.cant_promo ? Math.round((1 - p.precio_promo/precio)*100) : 0;
+
+  return (
+    <div className="prod">
+      <div className="prod-thumb">
+        {p.foto ? <img src={p.foto} alt={p.nombre} className="prod-img"/> : <span className="placeholder">{(p.codigo||'').slice(0,6)}</span>}
+        {offerPct > 0 && <div className="prod-offer">−{offerPct}%</div>}
+      </div>
+      <div className="prod-brand">{p.categoria||'General'}</div>
+      <p className="prod-name">{p.nombre}</p>
+      <div className="prod-prices">
+        <span className="prod-price-unit">{fmtARS(precio)}</span>
+        {p.codigo && <span className="prod-price-box">{p.codigo}</span>}
+      </div>
+      {p.precio_promo && p.cant_promo && (
+        <div style={{fontSize:11,color:'#c5562b',background:'#fff5f0',padding:'4px 8px',borderRadius:6,fontWeight:500}}>
+          🏷️ {fmtARS(p.precio_promo)} llevando {p.cant_promo}+
+        </div>
+      )}
+      <div className="prod-actions">
+        <button className="btn-add" onClick={() => onAdd(p, 1, 'unit')}>
+          <IconUnit size={12}/>
+          <span><b>+</b> Unidad</span>
+        </button>
+        <button className="btn-add box" onClick={() => onAdd(p, 1, 'unit')}>
+          <IconPlus size={12}/>
+          <span>Agregar</span>
+        </button>
+      </div>
+      <div className="prod-foot">
+        <button className="prod-note-btn" data-has={hasNote?'1':'0'} onClick={() => onNote(p.id)}>
+          <IconNote size={11}/> {hasNote ? 'Ver nota' : 'Nota'}
+        </button>
+        {inCart && <span className="in-cart-tag">{inCart.qty} en carrito</span>}
+      </div>
+    </div>
+  );
+}
+
+// ── Catalog Screen ──
+function CatalogScreen({ productos, lista, cart, onAdd, onNote, notes }) {
+  const [cat,    setCat]    = useState('todas');
+  const [search, setSearch] = useState('');
+  const [sOpen,  setSOpen]  = useState(false);
+  const sRef = useRef(null);
+
+  const categories = useMemo(() => {
+    const cats = [...new Set(productos.map(p => p.categoria || 'General'))].sort();
+    return [{ id: 'todas', label: 'Todas', icon: '◍' }, ...cats.map(c => ({ id: c, label: c, icon: '▤' }))];
+  }, [productos]);
+
+  const filtered = useMemo(() => {
+    let xs = productos;
+    if (cat && cat !== 'todas') xs = xs.filter(p => (p.categoria||'General') === cat);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      xs = xs.filter(p => (p.nombre||'').toLowerCase().includes(q) || (p.codigo||'').toLowerCase().includes(q));
+    }
+    return xs;
+  }, [productos, cat, search]);
+
+  const searchMatches = useMemo(() => {
+    if (!search.trim()) return [];
+    const q = search.toLowerCase();
+    return productos.filter(p => (p.nombre||'').toLowerCase().includes(q) || (p.codigo||'').toLowerCase().includes(q)).slice(0,6);
+  }, [search, productos]);
+
+  useEffect(() => {
+    const fn = e => { if (!sRef.current?.contains(e.target)) setSOpen(false); };
+    document.addEventListener('mousedown', fn);
+    return () => document.removeEventListener('mousedown', fn);
+  }, []);
+
+  return (
+    <div className="container">
+      {/* Search bar (mobile) */}
+      <div ref={sRef} style={{position:'relative',marginBottom:16}} className="search-rel">
+        <div className="search">
+          <IconSearch size={16} stroke="#6b7280"/>
+          <input placeholder="Buscar productos o códigos…" value={search}
+                 onChange={e=>{setSearch(e.target.value);setSOpen(true);}} onFocus={()=>setSOpen(true)}/>
+        </div>
+        {sOpen && searchMatches.length > 0 && (
+          <div className="search-pop">
+            {searchMatches.map(p => (
+              <button key={p.id} onClick={()=>{setCat(p.categoria||'General');setSearch('');setSOpen(false);}}>
+                <div className="sp-thumb"/>
+                <span>{p.nombre}</span>
+                <span className="sp-brand">{fmtARS(priceForLista(p,lista))}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Categorías */}
+      <div className="section-head"><h2>Categorías</h2></div>
+      <div className="chips">
+        {categories.map(c => (
+          <button key={c.id} className="chip" data-on={cat===c.id?'1':'0'} onClick={()=>setCat(c.id)}>
+            <span className="chip-icon">{c.icon}</span>{c.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="filters">
+        <span className="fcount">{filtered.length} productos</span>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div style={{textAlign:'center',padding:'60px 20px',color:'var(--cd-ink-3)'}}>
+          <div style={{fontSize:40,marginBottom:12}}>🔍</div>
+          <p>Sin productos en esta categoría.</p>
+        </div>
+      ) : (
+        <div className="grid">
+          {filtered.map(p => (
+            <ProductCard key={p.id} product={p} lista={lista} cart={cart}
+                        onAdd={onAdd} onNote={onNote} notes={notes}/>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Cart Drawer ──
+function CartDrawer({ cart, products, lista, cartOpen, setCartOpen, notes, onSetQty, onConfirm }) {
+  const lines = cart.map(c => {
+    const p = products.find(x => x.id === c.id);
+    if (!p) return null;
+    const precio = c.promoApplied ? (p.precio_promo || priceForLista(p,lista)) : priceForLista(p,lista);
+    return { ...c, product: p, precio, lineTotal: precio * c.qty };
+  }).filter(Boolean);
+
+  const subtotal = lines.reduce((a,l) => a + l.lineTotal, 0);
+
+  return (
+    <>
+      <div className={'cart-overlay' + (cartOpen?' open':'')} onClick={()=>setCartOpen(false)}/>
+      <div className={'cart' + (cartOpen?' open':'')}>
+        <div className="cart-head">
+          <h3>Carrito <span>· {lines.reduce((a,l)=>a+l.qty,0)} items</span></h3>
+          <button className="cart-close" onClick={()=>setCartOpen(false)}><IconClose size={14}/></button>
+        </div>
+        <div className="cart-body">
+          {lines.length === 0 ? (
+            <div className="cart-empty">
+              <h4>Carrito vacío</h4>
+              <p>Agregá productos desde el catálogo.</p>
+            </div>
+          ) : lines.map(l => (
+            <div className="cart-item" key={l.id+'-'+l.kind}>
+              <div className="cart-item-thumb">
+                {l.product.foto && <img src={l.product.foto} alt={l.product.nombre}/>}
+              </div>
+              <div>
+                <p className="cart-item-name">{l.product.nombre}</p>
+                <div className="cart-item-meta">
+                  <span className="pip">{fmtARS(l.precio)} c/u</span>
+                  {l.promoApplied && <span style={{color:'#c5562b',fontWeight:600}}>🏷️ PROMO</span>}
+                </div>
+                {notes[l.id] && <div style={{fontSize:11,color:'var(--cd-ink-3)',marginTop:4,fontStyle:'italic'}}>"{notes[l.id]}"</div>}
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:4,alignItems:'flex-end'}}>
+                <div className="cart-qty">
+                  <button onClick={()=>onSetQty(l.id,l.qty-1,l.promoApplied)}>−</button>
+                  <input value={l.qty} onChange={e=>{const v=parseInt(e.target.value,10);onSetQty(l.id,isNaN(v)?0:v,l.promoApplied);}}/>
+                  <button onClick={()=>onSetQty(l.id,l.qty+1,l.promoApplied)}>+</button>
+                </div>
+                <div className="cart-item-line">{fmtARS(l.lineTotal)}</div>
+                <button className="cart-item-remove" onClick={()=>onSetQty(l.id,0)}>quitar</button>
+              </div>
+            </div>
+          ))}
+        </div>
+        {lines.length > 0 && (
+          <div className="cart-foot">
+            <div className="cart-totals">
+              <div className="ln"><span>Subtotal</span><span>{fmtARS(subtotal)}</span></div>
+              <div className="ln total"><span>Total</span><span>{fmtARS(subtotal)}</span></div>
+            </div>
+            <button className="btn-primary" onClick={()=>{setCartOpen(false);onConfirm(lines,subtotal);}}>
+              <IconCheck size={16} stroke="#fff"/> Finalizar pedido · {fmtARS(subtotal)}
+            </button>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ── Confirm Screen ──
+function ConfirmScreen({ usuario, empresa, lines, subtotal, notes, onBack, onSend }) {
+  const [sent, setSent] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const orderId = useMemo(() => 'PED-' + Math.floor(10000 + Math.random()*89999), []);
+  const today = new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'long',year:'numeric'});
+
+  const guardar = async () => {
+    setSaving(true);
+    try {
+      const bkBody = {
+        empresa_id: empresa.id,
+        fecha: new Date().toISOString(),
+        cliente_nom: usuario.name || usuario.uid,
+        cliente_id: usuario.uid,
+        lista: usuario.lista || 'Clientes',
+        items: lines.map(l => ({ id: l.product.id, n: l.product.nombre, c: l.qty, p: l.precio, sub: l.lineTotal })),
+        total: subtotal,
+        tipo: 'pedido',
+        usuario: usuario.uid,
+        usuario_nom: usuario.name || usuario.uid,
+        aprobado: null,
+      };
+      await sbPost('backup_pedidos', bkBody);
+      setSent(true);
+      if (onSend) onSend();
+    } catch(ex) { alert('Error al guardar pedido: ' + ex.message); }
+    setSaving(false);
+  };
+
+  const generarPDF = () => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.text((empresa.nombre||'EMPRESA').toUpperCase(), 105, 18, {align:'center'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(100,100,100);
+    doc.text('Pedido · '+orderId, 105, 26, {align:'center'});
+    doc.text('Fecha: '+today, 105, 33, {align:'center'});
+    doc.setDrawColor(200,205,215); doc.line(10,37,200,37);
+    doc.setFontSize(10); doc.setTextColor(20,20,20);
+    doc.text('Cliente: '+(usuario.name||usuario.uid), 14, 45);
+    doc.text('Lista: '+(usuario.lista||'Clientes'), 14, 52);
+    doc.autoTable({
+      startY:57, margin:{left:10,right:10},
+      head:[['Producto','Cant.','P.U.','Subtotal']],
+      body: lines.map(l => [l.product.nombre, l.qty, fmtARS(l.precio), fmtARS(l.lineTotal)]),
+      theme:'plain',
+      headStyles:{fontStyle:'bold',fontSize:9,fillColor:[255,255,255],lineWidth:{bottom:0.5},lineColor:[180,180,180]},
+      bodyStyles:{fontSize:9,fillColor:[255,255,255],lineWidth:0.2,lineColor:[210,215,220]},
+      columnStyles:{0:{cellWidth:100},1:{halign:'center',cellWidth:16},2:{halign:'right',cellWidth:30},3:{halign:'right',cellWidth:40}}
+    });
+    const yP = doc.lastAutoTable.finalY + 4;
+    doc.setFont('helvetica','bold'); doc.setFontSize(12);
+    doc.text('TOTAL: ' + fmtARS(subtotal), 200, yP+12, {align:'right'});
+    doc.setFontSize(7); doc.setTextColor(180,185,195);
+    doc.text((empresa.nombre||'')+'  ·  '+orderId+'  ·  '+today, 105, 289, {align:'center'});
+    const blob = doc.output('blob');
+    const file = new File([blob], `pedido_${orderId}.pdf`, {type:'application/pdf'});
+    if (navigator.share) navigator.share({files:[file]}).catch(()=>doc.save(`pedido_${orderId}.pdf`));
+    else doc.save(`pedido_${orderId}.pdf`);
+  };
+
+  const waText = encodeURIComponent(
+    `Hola! Soy ${usuario.name||usuario.uid}. Mi pedido ${orderId} por ${fmtARS(subtotal)} está listo. Te lo envío por PDF.`
+  );
+  const waUrl = `https://wa.me/?text=${waText}`;
+
+  if (sent) {
+    return (
+      <div className="ticket-stage">
+        <div className="ticket-success">
+          <div className="ticket-check"><IconCheck size={28} stroke="#fff"/></div>
+          <h2>¡Pedido enviado!</h2>
+          <p>El pedido fue registrado. El equipo lo revisará pronto.</p>
+        </div>
+        <div className="ticket-actions">
+          <button onClick={onBack}>← Volver al catálogo</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="ticket-stage">
+      <div className="ticket-success">
+        <div className="ticket-check"><IconCheck size={28} stroke="#fff"/></div>
+        <h2>Pedido listo para enviar</h2>
+        <p>Revisalo y enviánoslo por WhatsApp con el PDF adjunto.</p>
+      </div>
+
+      <div className="ticket">
+        <div className="ticket-head">
+          <div>
+            <h4>Pedido</h4>
+            <div className="ticket-id">{orderId}</div>
+          </div>
+          <div className="ticket-date">{today}</div>
+        </div>
+
+        <dl className="ticket-cust">
+          <div><dt>Cliente</dt><dd>{usuario.name||usuario.uid}</dd></div>
+          <div><dt>Código</dt><dd>{usuario.uid}</dd></div>
+          <div><dt>Lista de precios</dt><dd>{usuario.lista||'Clientes'}</dd></div>
+          <div><dt>Empresa</dt><dd>{empresa.nombre||''}</dd></div>
+        </dl>
+
+        <div className="ticket-items">
+          {lines.map(l => (
+            <div className="ticket-row" key={l.id+'-'+l.kind}>
+              <div><b>{l.product.nombre}</b><br/>
+                <span style={{color:'var(--cd-ink-3)',fontSize:11}}>{l.product.codigo}</span>
+              </div>
+              <div className="ti-q">{l.qty} un.</div>
+              <div className="ti-p">{fmtARS(l.lineTotal)}</div>
+              {notes[l.id] && <div style={{gridColumn:'1/-1',fontSize:11,color:'var(--cd-ink-3)',fontStyle:'italic',paddingLeft:8,borderLeft:'2px solid var(--cd-line)'}}>Nota: {notes[l.id]}</div>}
+            </div>
+          ))}
+        </div>
+
+        <div className="ticket-totals">
+          <div className="ln"><span>Items totales</span><span>{lines.reduce((a,l)=>a+l.qty,0)}</span></div>
+          <div className="ln total"><span>Total</span><span>{fmtARS(subtotal)}</span></div>
+        </div>
+
+        <div className="ticket-foot">
+          <button className="btn-wa" onClick={async()=>{await guardar(); window.open(waUrl,'_blank');}}>
+            <IconWhats size={18}/> Enviar por WhatsApp
+          </button>
+          <button className="btn-pdf" onClick={async()=>{await guardar(); generarPDF();}}>
+            <IconPDF size={18}/> {saving?'Guardando…':'Descargar PDF'}
+          </button>
+        </div>
+      </div>
+
+      <div className="ticket-actions">
+        <button onClick={onBack}>← Volver al catálogo</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Note Modal ──
+function NoteModal({ productId, products, notes, onSave, onClose }) {
+  const prod = products.find(p => p.id === productId);
+  const [text, setText] = useState(notes[productId]||'');
+  if (!prod) return null;
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <h3>Nota para {prod.nombre}</h3>
+        <p>Aclaraciones para el pedido: presentación, fecha, sustituciones, etc.</p>
+        <textarea autoFocus value={text} onChange={e=>setText(e.target.value)}
+                  placeholder="Ej: si no hay envase nuevo, mandar lo que tengan."/>
+        <div className="modal-actions">
+          <button className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button className="btn-solid" onClick={()=>onSave(productId,text)}>Guardar nota</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Top Bar ──
+function TopBar({ usuario, empresa, lista, cartCount, cartOpen, setCartOpen }) {
+  const tier = (lista||'Clientes').charAt(0).toUpperCase();
+  return (
+    <div className="topbar">
+      <div className="brand">
+        {empresa.logo
+          ? <img src={empresa.logo} alt={empresa.nombre} style={{height:28,borderRadius:6}}/>
+          : <div className="brand-mark">C</div>}
+        <div className="brand-name">{empresa.nombre||'DistriMax'} <span>· Pedidos</span></div>
+      </div>
+      <span className="spacer"/>
+      <div className="tier-pill">
+        <div className="tier-dot">{tier}</div>
+        {lista||'Clientes'}
+      </div>
+      <button className={'icon-btn'+(cartCount>0?' has-badge':'')} data-badge={cartCount||''}
+              onClick={()=>setCartOpen(!cartOpen)}>
+        <IconCart size={18}/>
+      </button>
+    </div>
+  );
+}
+
+// ── Bottom Nav ──
+function BottomNav({ view, setView, cartCount, setCartOpen }) {
+  const items = [
+    { id: 'catalog', label: 'Inicio',  icon: <IconHome size={20}/> },
+    { id: 'cart',    label: 'Carrito', icon: <IconCart size={20}/>, badge: cartCount },
+  ];
+  return (
+    <div className="bottom-nav">
+      {items.map(it => (
+        <button key={it.id} data-on={view===it.id?'1':'0'}
+                onClick={()=>{ if(it.id==='cart'){setCartOpen(true);}else{setView(it.id);} }}>
+          <span>{it.icon}</span>
+          <span>{it.label}</span>
+          {it.badge>0 && <span className="bn-badge">{it.badge}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Root App ──
+function App() {
+  const [session,   setSession]   = useState(null);   // { empresa, usuario, productos }
+  const [cart,      setCart]      = useState([]);
+  const [notes,     setNotes]     = useState({});
+  const [cartOpen,  setCartOpen]  = useState(false);
+  const [view,      setView]      = useState('catalog'); // catalog | confirm
+  const [confirmLines, setConfirmLines] = useState([]);
+  const [confirmTotal, setConfirmTotal] = useState(0);
+  const [noteFor,   setNoteFor]   = useState(null);
+
+  // Restore session from sessionStorage
+  useEffect(() => {
+    try {
+      const s = JSON.parse(sessionStorage.getItem('dm_cli_session')||'null');
+      if (s) setSession(s);
+    } catch {}
+  }, []);
+
+  const handleLogin = (s) => {
+    setSession(s);
+    sessionStorage.setItem('dm_cli_session', JSON.stringify(s));
+  };
+
+  const addToCart = (product, qty, kind) => {
+    setCart(prev => {
+      const existing = prev.find(c => c.id === product.id);
+      if (existing) return prev.map(c => c.id===product.id ? {...c, qty: c.qty+qty} : c);
+      return [...prev, { id: product.id, qty, kind }];
+    });
+  };
+
+  const setQty = (id, qty) => {
+    setCart(prev => qty <= 0 ? prev.filter(c=>c.id!==id) : prev.map(c=>c.id===id?{...c,qty}:c));
+  };
+
+  const saveNote = (prodId, text) => {
+    setNotes(prev => ({...prev, [prodId]: text.trim() || undefined}));
+    setNoteFor(null);
+  };
+
+  const handleConfirm = (lines, total) => {
+    setConfirmLines(lines);
+    setConfirmTotal(total);
+    setView('confirm');
+  };
+
+  const handleBack = () => {
+    setCart([]);
+    setNotes({});
+    setView('catalog');
+  };
+
+  if (!session) return <LoginScreen onLogin={handleLogin}/>;
+
+  const { empresa, usuario, productos } = session;
+  const lista = usuario.lista || 'Clientes';
+  const cartCount = cart.reduce((a,c)=>a+c.qty,0);
+
+  return (
+    <div className="app">
+      <TopBar usuario={usuario} empresa={empresa} lista={lista}
+              cartCount={cartCount} cartOpen={cartOpen} setCartOpen={setCartOpen}/>
+      <div className="body">
+        {view === 'catalog' && (
+          <CatalogScreen productos={productos} lista={lista} cart={cart}
+                        onAdd={addToCart} onNote={setNoteFor} notes={notes}/>
+        )}
+        {view === 'confirm' && (
+          <ConfirmScreen usuario={usuario} empresa={empresa} lines={confirmLines}
+                        subtotal={confirmTotal} notes={notes} onBack={handleBack} onSend={handleBack}/>
+        )}
+      </div>
+      <CartDrawer cart={cart} products={productos} lista={lista} cartOpen={cartOpen}
+                 setCartOpen={setCartOpen} notes={notes} onSetQty={setQty} onConfirm={handleConfirm}/>
+      {noteFor && <NoteModal productId={noteFor} products={productos} notes={notes}
+                            onSave={saveNote} onClose={()=>setNoteFor(null)}/>}
+      <BottomNav view={view} setView={setView} cartCount={cartCount} setCartOpen={setCartOpen}/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
